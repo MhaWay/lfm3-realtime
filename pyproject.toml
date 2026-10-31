@@ -33,7 +33,7 @@ dependencies = [
 demo = ["sounddevice"]
 
 [project.scripts]
-lfm3-realtime = "lfm3_rt.server:main"
+lfm3-realtime = "lfm3_rt.server:cli"
 
 [tool.setuptools.packages.find]
 include = ["lfm3_rt*"]

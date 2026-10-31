@@ -21,8 +21,8 @@ no vendor lock-in — think of it as a local answer to cloud realtime voice.
 ## Quickstart
 
 ```bash
-pip install lfm3-realtime          # or: uv pip install -e .
-lfm3-realtime                      # downloads/loads the model, listens on ws://127.0.0.1:8024/
+pip install git+https://github.com/MhaWay/lfm3-realtime.git   # or clone + uv pip install -e .
+python -m lfm3_rt.server           # loads the model, ws://127.0.0.1:8024/ + batch API on :8023
 ```
 
 Talk to it from the included demo client:

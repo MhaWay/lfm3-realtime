@@ -256,13 +256,23 @@ async def handle(ws) -> None:
 
 async def main():
     load_model()
+    http_port = os.environ.get("LFM3_HTTP_PORT", "8023")
+    if http_port not in ("", "0", "off"):
+        from . import batch
+        batch.serve_http(HOST, int(http_port))
+        print(f"batch endpoints on http://{HOST}:{http_port}", flush=True)
     async with _ws.serve(handle, HOST, PORT, max_size=64 * 1024 * 1024):
         print(f"lfm3-realtime listening on ws://{HOST}:{PORT}/", flush=True)
         await asyncio.Future()
 
 
-if __name__ == "__main__":
+def cli() -> None:
+    """Console entry point (registered in pyproject as `lfm3-realtime`)."""
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
         pass
+
+
+if __name__ == "__main__":
+    cli()
