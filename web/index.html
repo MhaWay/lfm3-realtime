@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>LFM3-Realtime Demo</title></head>
+<body style="font-family: system-ui; max-width: 720px; margin: 2rem auto;">
+<h1>LFM3-Realtime</h1>
+<p>Speak or type into this page: record a clip (works over HTTPS/tunnel) or drag a <code>.wav</code>. First audio typically in ~1 s.</p>
+<input type="file" id="f" accept="audio/*">
+<button id="ask">Ask</button>
+<p id="st">idle</p>
+<audio id="out" controls></audio>
+<script>
+const URL = `ws://${location.hostname}:8024/`;
+let ws, pcm = [];
+function int16FromBuffer(b) { const d = new Float32Array(b); const i = new Int16Array(d.length); for (let n = 0; n < d.length; n++) i[n] = Math.max(-32768, Math.min(32767, d[n] * 32767)); return i; }
+async function ask(file) {
+  const ctx = new AudioContext({ sampleRate: 16000 });
+  const buf = await ctx.decodeAudioData(await file.arrayBuffer());
+  const ch = buf.getChannelData(0);
+  // resample to 16k if needed
+  let pcm16;
+  if (buf.sampleRate !== 16000) {
+    const oc = new OfflineAudioContext(1, Math.ceil(ch.length * 16000 / buf.sampleRate), 16000);
+    const src = oc.createBufferSource(); src.buffer = buf; src.connect(oc.destination); src.start();
+    const rb = await oc.startRendering(); pcm16 = int16FromBuffer(rb.getChannelData(0));
+  } else pcm16 = int16FromBuffer(ch);
+  st.textContent = "connecting…";
+  ws = new WebSocket(URL);
+  ws.binaryType = "arraybuffer";
+  let frames = [], t0;
+  ws.onopen = () => {
+    ws.send(JSON.stringify({ type: "session.update", session: { instructions: "Respond with interleaved text and audio." } }));
+    const chunk = 8000;
+    for (let i = 0; i < pcm16.length; i += chunk)
+      ws.send(JSON.stringify({ type: "input_audio_buffer.append", audio: btoa(String.fromCharCode(...pcm16.subarray(i, i + chunk))) }));
+    t0 = performance.now();
+    ws.send(JSON.stringify({ type: "response.create" }));
+    st.textContent = "sent, waiting…";
+  };
+  ws.onmessage = (e) => {
+    const m = JSON.parse(e.data);
+    if (m.type === "response.audio.delta") {
+      if (!frames.length) st.textContent = `first audio in ${((performance.now() - t0) / 1000).toFixed(2)}s`;
+      frames.push(atob(m.delta));
+    } else if (m.type === "response.done") {
+      const bin = frames.join(""), arr = new Int16Array(bin.length / 2);
+      for (let i = 0; i < arr.length; i++) arr[i] = bin.charCodeAt(i * 2) | (bin.charCodeAt(i * 1 + 1) << 8);
+      const f = new Float32Array(arr.length);
+      for (let i = 0; i < arr.length; i++) f[i] = arr[i] / 32767;
+      const wav = new Blob([wencode(f, 24000)], { type: "audio/wav" });
+      out.src = URL.createObjectURL(wav);
+      st.textContent = "done";
+    }
+  };
+  ws.onerror = () => st.textContent = "error — is lfm3-realtime running?";
+}
+function wencode(f, sr) {
+  const b = new ArrayBuffer(44 + f.length * 2), v = new DataView(b);
+  const s = (o, t) => { for (let i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)); };
+  s(0, "RIFF"); v.setUint32(4, 36 + f.length * 2, true); s(8, "WAVEfmt "); v.setUint32(16, 16, true);
+  v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true);
+  v.setUint16(32, 2, true); v.setUint16(34, 16, true); s(36, "data"); v.setUint32(40, f.length * 2, true);
+  for (let i = 0; i < f.length; i++) v.setInt16(44 + i * 2, Math.max(-32768, Math.min(32767, f[i] * 32767)), true);
+  return b;
+}
+askbtn.onclick = () => f.files[0] && ask(f.files[0]);
+</script>
+</body>
+</html>

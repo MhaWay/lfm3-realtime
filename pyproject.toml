@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lfm3-realtime"
+version = "0.1.0"
+description = "OpenAI Realtime-compatible WebSocket server for local speech-to-speech with LFM3-Audio (Liquid AI)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Emanuele D'Angelo" }]
+keywords = ["realtime", "speech-to-speech", "lfm3", "liquid-ai", "websocket", "openai-realtime", "voice-agent"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Multimedia :: Sound/Audio :: Speech",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+  "torch>=2.5",
+  "transformers>=5.20.2",
+  "accelerate",
+  "numpy",
+  "soundfile",
+  "scipy",
+  "websockets>=13",
+]
+
+[project.optional-dependencies]
+demo = ["sounddevice"]
+
+[project.scripts]
+lfm3-realtime = "lfm3_rt.server:main"
+
+[tool.setuptools.packages.find]
+include = ["lfm3_rt*"]
