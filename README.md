@@ -7,7 +7,7 @@
 ASR → LLM → TTS pipeline: audio in, interleaved text+audio out, streamed as PCM deltas over a
 wire-compatible subset of the [OpenAI Realtime client protocol](https://developers.openai.com/api/docs/guides/voice-websockets).
 
-**First audio in ~1.2 s on a single consumer-class GPU, entirely offline.** No API keys, no cloud,
+**First audio in ~1.2 s on one desktop-class NVIDIA GPU, entirely offline.** No API keys, no cloud,
 no vendor lock-in — think of it as a local answer to cloud realtime voice.
 
 - **One model, not three.** Speech recognition, reasoning and synthesis happen inside LFM3-Audio's
@@ -22,7 +22,8 @@ no vendor lock-in — think of it as a local answer to cloud realtime voice.
 
 ```bash
 pip install git+https://github.com/MhaWay/lfm3-realtime.git   # or clone + uv pip install -e .
-python -m lfm3_rt.server           # loads the model, ws://127.0.0.1:8024/ + batch API on :8023
+lfm3-realtime                    # or: python -m lfm3_rt.server
+# loads the model, ws://127.0.0.1:8024/ + batch API on :8023
 ```
 
 Talk to it from the included demo client:
@@ -43,12 +44,14 @@ async with websockets.connect("ws://127.0.0.1:8024/") as ws:
     await ws.recv()  # session.created
     await ws.send(json.dumps({"type": "session.update",
                               "session": {"instructions": "Respond with interleaved text and audio."}}))
-    await ws.send(json.dumps({"type": "input_audio_buffer.append", "audio": base64.b64encode(pcm16_mono_16k).decode()}))
+    await ws.send(json.dumps({"type": "input_audio_buffer.append", "audio": base64.b64encode(pcm16_mono_16k).decode()}))  # your Int16 mono @16kHz
     await ws.send(json.dumps({"type": "response.create"}))
     async for raw in ws:
         ev = json.loads(raw)
         if ev["type"] == "response.audio.delta":   # PCM16 mono @ 24 kHz
             play(base64.b64decode(ev["delta"]))
+        elif ev["type"] == "response.done":
+            break
 ```
 
 ## Protocol
@@ -68,9 +71,9 @@ during generation are rejected with a clear error so clients can back off.
 
 ## Requirements
 
-- NVIDIA GPU with ≥ 8 GB free (bf16 weights + codec), tested on DGX Spark (GB10) and consumer cards
+- NVIDIA GPU with ≥ 8 GB free (bf16 weights + codec); tested on DGX Spark (GB10)
 - `python >= 3.10`, `transformers >= 5.20.2`, `torch`, `websockets`
-- Model weights: `LiquidAI/LFM3-Audio-2B` (or a local snapshot via `LFM3_MODEL_PATH`)
+- Model weights: `LiquidAI/LFM3-Audio-2B` (or a local snapshot via `LFM3_MODEL_PATH`; set `HF_HUB_OFFLINE=1` for air-gapped runs)
 
 ## Configuration
 
